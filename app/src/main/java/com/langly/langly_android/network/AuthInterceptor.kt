@@ -1,5 +1,6 @@
 package com.langly.langly_android.network
 
+import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.Response
 
@@ -8,7 +9,7 @@ class AuthInterceptor : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
 
-        val token = TokenManager.accessToken
+        val token = runBlocking { TokenManager.getAccessToken() }
 
         val newRequest = if (token != null) {
             originalRequest.newBuilder()

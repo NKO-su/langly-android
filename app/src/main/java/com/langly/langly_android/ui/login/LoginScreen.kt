@@ -23,11 +23,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.LaunchedEffect
 
 @Composable
 fun LoginScreen(
     modifier: Modifier = Modifier,
-    viewModel: LoginViewModel = viewModel()
+    viewModel: LoginViewModel = viewModel(),
+    onLoginSuccess: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var email by rememberSaveable { mutableStateOf("") }
@@ -84,6 +86,9 @@ fun LoginScreen(
         if (uiState.isSuccess) {
             Spacer(Modifier.height(12.dp))
             Text("Đăng nhập thành công!")
+            LaunchedEffect(Unit) {
+                onLoginSuccess()
+            }
         }
     }
 }

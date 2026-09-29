@@ -25,4 +25,5 @@ object RetrofitInstance {
         .build()
 
     val authApi: AuthApi = retrofit.create(AuthApi::class.java)
+    val articleApi: ArticleApi = retrofit.create(ArticleApi::class.java)
 }

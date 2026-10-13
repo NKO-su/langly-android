@@ -1,5 +1,6 @@
 package com.langly.langly_android.ui.articles
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.langly.langly_android.network.RetrofitInstance
@@ -25,6 +26,7 @@ class ArticleViewModel : ViewModel() {
             _uiState.value = state.copy(isLoading = true, errorMessage = null)
             try {
                 val response = RetrofitInstance.articleApi.getArticles(cursor = state.nextCursor)
+                //Log.d("LinkCheck", "link = ${response.articles.first().link}")
                 _uiState.value = state.copy(
                     articles = state.articles + response.articles,
                     nextCursor = response.nextCursor,

@@ -1,5 +1,6 @@
 package com.langly.langly_android.ui.article
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -20,6 +21,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
 fun ArticleListScreen(
+    onArticleClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ArticleViewModel = viewModel()
 ) {
@@ -46,7 +48,9 @@ fun ArticleListScreen(
                         Text(
                             text = article.title,
                             style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.padding(16.dp)
+                            modifier = Modifier
+                                .clickable { onArticleClick(article.id) }
+                                .padding(16.dp)
                         )
                         HorizontalDivider()
                     }

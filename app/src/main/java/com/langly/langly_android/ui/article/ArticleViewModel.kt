@@ -3,6 +3,8 @@ package com.langly.langly_android.ui.article
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.langly.langly_android.network.RetrofitInstance
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,6 +15,8 @@ class ArticleViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(ArticleUiState())
     val uiState: StateFlow<ArticleUiState> = _uiState.asStateFlow()
 
+    private var loadJob: Job? = null
+
     init {
         loadMore()
     }
@@ -21,17 +25,18 @@ class ArticleViewModel : ViewModel() {
         val state = _uiState.value
         if (state.isLoading || !state.hasMore) return
 
-        viewModelScope.launch {
+        loadJob = viewModelScope.launch {
             _uiState.value = state.copy(isLoading = true, errorMessage = null)
             try {
                 val response = RetrofitInstance.articleApi.getArticles(cursor = state.nextCursor)
-                //Log.d("LinkCheck", "link = ${response.articles.first().link}")
                 _uiState.value = state.copy(
                     articles = state.articles + response.articles,
                     nextCursor = response.nextCursor,
                     hasMore = response.hasMore,
                     isLoading = false
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.value = state.copy(
                     isLoading = false,
@@ -39,5 +44,11 @@ class ArticleViewModel : ViewModel() {
                 )
             }
         }
+    }
+
+    fun refresh() {
+        loadJob?.cancel()
+        _uiState.value = ArticleUiState()
+        loadMore()
     }
 }

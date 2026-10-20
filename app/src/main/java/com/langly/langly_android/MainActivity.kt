@@ -12,7 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import com.langly.langly_android.ui.articles.ArticleListScreen
+import com.langly.langly_android.ui.article.ArticleListScreen
 import com.langly.langly_android.ui.login.LoginScreen
 import com.langly.langly_android.ui.theme.LanglyTheme
 

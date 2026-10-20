@@ -1,6 +1,5 @@
-package com.langly.langly_android.ui.articles
+package com.langly.langly_android.ui.article
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.langly.langly_android.network.RetrofitInstance

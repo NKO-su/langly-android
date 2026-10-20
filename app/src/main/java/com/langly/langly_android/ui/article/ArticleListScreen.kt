@@ -1,4 +1,4 @@
-package com.langly.langly_android.ui.articles
+package com.langly.langly_android.ui.article
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize

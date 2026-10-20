@@ -1,7 +1,9 @@
 package com.langly.langly_android.network
 
+import com.langly.langly_android.model.ArticleDetail
 import com.langly.langly_android.model.ArticlePageResponse
 import retrofit2.http.GET
+import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface ArticleApi {
@@ -11,4 +13,7 @@ interface ArticleApi {
         @Query("cursor") cursor: Long?,
         @Query("size") size: Int = 10
     ): ArticlePageResponse
+
+    @GET("api/articles/{id}")
+    suspend fun getArticle(@Path("id") id: Long): ArticleDetail
 }

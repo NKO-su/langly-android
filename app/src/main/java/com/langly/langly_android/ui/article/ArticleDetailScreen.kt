@@ -1,5 +1,6 @@
 package com.langly.langly_android.ui.article
 
+import YOUR_PACKAGE.ui.articles.ArticleBody
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -55,8 +56,9 @@ fun ArticleDetailScreen(
                     s.article.trailText?.let {
                         Text(it, style = MaterialTheme.typography.bodyLarge)
                     }
-                    // TẠM THỜI: phần body (HTML) sẽ hiển thị ở bước sau
-                    Text("(Nội dung bài viết sẽ hiển thị ở bước tiếp theo)")
+                    s.article.body?.let {
+                        ArticleBody(html = it)
+                    }
                 }
             }
 

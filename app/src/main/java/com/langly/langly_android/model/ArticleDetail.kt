@@ -7,5 +7,6 @@ data class ArticleDetail(
     val thumbnail: String?,
     val publishedAt: String?,
     val webUrl: String,
+    val byline: String?,
     val body: String?
 )

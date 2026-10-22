@@ -12,6 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -19,6 +20,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 
@@ -30,6 +32,7 @@ fun ArticleDetailScreen(
     viewModel: ArticleDetailViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val uriHandler = LocalUriHandler.current
 
     LaunchedEffect(articleId) {
         viewModel.load(articleId)
@@ -50,6 +53,9 @@ fun ArticleDetailScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(s.article.title, style = MaterialTheme.typography.headlineSmall)
+                    s.article.byline?.takeIf { it.isNotBlank() }?.let {
+                        Text(it, style = MaterialTheme.typography.titleSmall)
+                    }
                     s.article.publishedAt?.let {
                         Text(it, style = MaterialTheme.typography.bodySmall)
                     }
@@ -59,6 +65,12 @@ fun ArticleDetailScreen(
                     s.article.body?.let {
                         ArticleBody(html = it)
                     }
+                    s.article.webUrl?.let { url ->
+                        OutlinedButton(onClick = { uriHandler.openUri(url) }) {
+                            Text("Đọc bài gốc trên The Guardian")
+                        }
+                    }
+                    PoweredByGuardian()
                 }
             }
 

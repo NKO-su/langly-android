@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 
 class LoginViewModel : ViewModel() {
 
@@ -24,12 +25,23 @@ class LoginViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.value = LoginUiState(isLoading = true)
             try {
-                val response = RetrofitInstance.authApi.login(LoginRequest(email, password))
+                val response = RetrofitInstance.authApi.login(LoginRequest(email.trim(), password))
                 TokenManager.saveTokens(response.accessToken, response.refreshToken)
                 _uiState.value = LoginUiState(isSuccess = true)
+            } catch (e: HttpException) {
+                _uiState.value = LoginUiState(
+                    errorMessage = "Đăng nhập thất bại. Hãy kiểm tra email và mật khẩu. " +
+                            "Nếu vừa đăng ký, hãy chắc chắn bạn đã bấm link xác nhận trong email."
+                )
             } catch (e: Exception) {
-                _uiState.value = LoginUiState(errorMessage = "Đăng nhập thất bại: ${e.message}")
+                _uiState.value = LoginUiState(
+                    errorMessage = "Không kết nối được máy chủ. Hãy kiểm tra mạng và thử lại."
+                )
             }
         }
+    }
+
+    fun reset() {
+        _uiState.value = LoginUiState()
     }
 }

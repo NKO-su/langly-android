@@ -13,7 +13,10 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,17 +26,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.runtime.LaunchedEffect
 
 @Composable
 fun LoginScreen(
     modifier: Modifier = Modifier,
     viewModel: LoginViewModel = viewModel(),
-    onLoginSuccess: () -> Unit = {}
+    onLoginSuccess: () -> Unit = {},
+    onGoToRegister: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
+
+    DisposableEffect(Unit) {
+        onDispose { viewModel.reset() }
+    }
 
     Column(
         modifier = modifier
@@ -89,6 +96,14 @@ fun LoginScreen(
             LaunchedEffect(Unit) {
                 onLoginSuccess()
             }
+        }
+
+        Spacer(Modifier.height(8.dp))
+        TextButton(
+            onClick = onGoToRegister,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Chưa có tài khoản? Đăng ký")
         }
     }
 }

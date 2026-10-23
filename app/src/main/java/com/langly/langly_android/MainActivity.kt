@@ -18,6 +18,7 @@ import com.langly.langly_android.ui.article.ArticleDetailScreen
 import com.langly.langly_android.ui.article.ArticleListScreen
 import com.langly.langly_android.ui.article.ArticleViewModel
 import com.langly.langly_android.ui.login.LoginScreen
+import com.langly.langly_android.ui.register.RegisterScreen
 import com.langly.langly_android.ui.theme.LanglyTheme
 
 class MainActivity : ComponentActivity() {
@@ -29,11 +30,10 @@ class MainActivity : ComponentActivity() {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     var isLoggedIn by remember { mutableStateOf(false) }
                     var selectedArticleId by remember { mutableStateOf<Long?>(null) }
+                    var showRegister by remember { mutableStateOf(false) }
 
                     if (isLoggedIn) {
-                        // Chỉ tạo SAU khi đăng nhập: init của ViewModel gọi API ngay
                         val articleViewModel: ArticleViewModel = viewModel()
-                        // Copy ra biến cục bộ vì delegated property không smart cast được
                         val articleId = selectedArticleId
 
                         BackHandler(enabled = articleId != null) {
@@ -57,10 +57,23 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     } else {
-                        LoginScreen(
-                            modifier = Modifier.padding(innerPadding),
-                            onLoginSuccess = { isLoggedIn = true }
-                        )
+                        // Nút Back của điện thoại: từ Register quay về Login
+                        BackHandler(enabled = showRegister) {
+                            showRegister = false
+                        }
+
+                        if (showRegister) {
+                            RegisterScreen(
+                                modifier = Modifier.padding(innerPadding),
+                                onBackToLogin = { showRegister = false }
+                            )
+                        } else {
+                            LoginScreen(
+                                modifier = Modifier.padding(innerPadding),
+                                onLoginSuccess = { isLoggedIn = true },
+                                onGoToRegister = { showRegister = true }
+                            )
+                        }
                     }
                 }
             }

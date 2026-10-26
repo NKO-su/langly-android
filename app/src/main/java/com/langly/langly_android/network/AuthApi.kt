@@ -2,6 +2,7 @@ package com.langly.langly_android.network
 
 import com.langly.langly_android.model.AuthResponse
 import com.langly.langly_android.model.LoginRequest
+import com.langly.langly_android.model.RefreshRequest
 import com.langly.langly_android.model.RegisterRequest
 import okhttp3.ResponseBody
 import retrofit2.Response
@@ -18,4 +19,7 @@ interface AuthApi {
 
     @POST("api/auth/resend-verification")
     suspend fun resendVerification(@Query("email") email: String): Response<ResponseBody>
+
+    @POST("api/auth/refresh")
+    suspend fun refresh(@Body request: RefreshRequest): Response<AuthResponse>
 }

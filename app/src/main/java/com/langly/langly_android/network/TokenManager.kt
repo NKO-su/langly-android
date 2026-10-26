@@ -4,9 +4,14 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "auth_prefs")
+
+enum class AuthState { Loading, LoggedIn, LoggedOut }
 
 object TokenManager {
 
@@ -18,6 +23,14 @@ object TokenManager {
     fun init(context: Context) {
         this.context = context.applicationContext
     }
+
+    val authState: Flow<AuthState>
+        get() = context.dataStore.data
+            .map { prefs ->
+                if (prefs[REFRESH_TOKEN_KEY] != null) AuthState.LoggedIn
+                else AuthState.LoggedOut
+            }
+            .distinctUntilChanged()
 
     suspend fun saveTokens(accessToken: String, refreshToken: String) {
         context.dataStore.edit { prefs ->

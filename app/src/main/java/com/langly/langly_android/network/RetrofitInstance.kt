@@ -13,9 +13,22 @@ object RetrofitInstance {
         level = HttpLoggingInterceptor.Level.BODY
     }
 
+    private val refreshClient = OkHttpClient.Builder()
+        .addInterceptor(loggingInterceptor)
+        .build()
+
+    private val refreshRetrofit = Retrofit.Builder()
+        .baseUrl(BASE_URL)
+        .client(refreshClient)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+
+    private val refreshApi: AuthApi = refreshRetrofit.create(AuthApi::class.java)
+
     private val okHttpClient = OkHttpClient.Builder()
         .addInterceptor(AuthInterceptor())
         .addInterceptor(loggingInterceptor)
+        .authenticator(TokenAuthenticator(refreshApi))
         .build()
 
     private val retrofit = Retrofit.Builder()

@@ -1,5 +1,7 @@
 package com.langly.langly_android.ui.login
 
+import android.net.Uri
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -11,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -23,9 +26,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+
+private const val GOOGLE_LOGIN_URL = "http://localhost:8080/oauth2/authorization/google"
 
 @Composable
 fun LoginScreen(
@@ -35,6 +41,7 @@ fun LoginScreen(
     onGoToRegister: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
 
@@ -83,6 +90,17 @@ fun LoginScreen(
             } else {
                 Text("Đăng nhập")
             }
+        }
+
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(
+            onClick = {
+                CustomTabsIntent.Builder().build()
+                    .launchUrl(context, Uri.parse(GOOGLE_LOGIN_URL))
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Đăng nhập với Google")
         }
 
         uiState.errorMessage?.let { message ->

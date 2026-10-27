@@ -22,4 +22,7 @@ interface AuthApi {
 
     @POST("api/auth/refresh")
     suspend fun refresh(@Body request: RefreshRequest): Response<AuthResponse>
+
+    @POST("api/auth/logout")
+    suspend fun logout(@Body request: RefreshRequest): Response<ResponseBody>
 }

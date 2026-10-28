@@ -142,12 +142,4 @@ Các endpoint ứng dụng đang khai báo:
 - `GET /api/articles`
 - `GET /api/articles/{id}`
 
-## Build Configuration
-- Android application module: `app`
-- Namespace / Application ID: `com.langly.langly_android`
-- Minimum SDK: 26
-- Target SDK: 37
-- Compile SDK: 37
-- Java source/target compatibility: 11
-- UI toolkit: Jetpack Compose
 

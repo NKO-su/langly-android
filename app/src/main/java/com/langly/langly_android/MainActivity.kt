@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -21,6 +24,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,8 +40,11 @@ import com.langly.langly_android.ui.article.ArticleListScreen
 import com.langly.langly_android.ui.article.ArticleViewModel
 import com.langly.langly_android.ui.login.LoginScreen
 import com.langly.langly_android.ui.register.RegisterScreen
+import com.langly.langly_android.ui.savedwords.SavedWordsScreen
 import com.langly.langly_android.ui.theme.LanglyTheme
 import kotlinx.coroutines.launch
+
+private enum class MainTab { READ, WORDS }
 
 class MainActivity : ComponentActivity() {
 
@@ -52,20 +60,27 @@ class MainActivity : ComponentActivity() {
                 val authFlow = remember { TokenManager.authState }
                 val authState by authFlow.collectAsState(initial = AuthState.Loading)
 
+                var selectedTab by rememberSaveable { mutableStateOf(MainTab.READ) }
                 var selectedArticleId by remember { mutableStateOf<Long?>(null) }
                 var showRegister by remember { mutableStateOf(false) }
                 val scope = rememberCoroutineScope()
+
+                val saveableStateHolder = rememberSaveableStateHolder()
+
                 LaunchedEffect(authState) {
                     if (authState == AuthState.LoggedOut) {
                         selectedArticleId = null
                         showRegister = false
+                        selectedTab = MainTab.READ
                     }
                 }
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     topBar = {
-                        if (authState == AuthState.LoggedIn && selectedArticleId == null) {
+                        if (authState == AuthState.LoggedIn &&
+                            (selectedTab == MainTab.WORDS || selectedArticleId == null)
+                        ) {
                             TopAppBar(
                                 title = { Text("Ourilang") },
                                 actions = {
@@ -74,6 +89,24 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             )
+                        }
+                    },
+                    bottomBar = {
+                        if (authState == AuthState.LoggedIn) {
+                            NavigationBar {
+                                NavigationBarItem(
+                                    selected = selectedTab == MainTab.READ,
+                                    onClick = { selectedTab = MainTab.READ },
+                                    icon = { Text("DOC") },
+                                    label = { Text("Đọc") }
+                                )
+                                NavigationBarItem(
+                                    selected = selectedTab == MainTab.WORDS,
+                                    onClick = { selectedTab = MainTab.WORDS },
+                                    icon = { Text("TUDALUC") },
+                                    label = { Text("Từ đã lưu") }
+                                )
+                            }
                         }
                     }
                 ) { innerPadding ->
@@ -93,25 +126,35 @@ class MainActivity : ComponentActivity() {
                             val articleViewModel: ArticleViewModel = viewModel()
                             val articleId = selectedArticleId
 
-                            BackHandler(enabled = articleId != null) {
+                            BackHandler(enabled = selectedTab == MainTab.READ && articleId != null) {
                                 selectedArticleId = null
                             }
 
-                            if (articleId == null) {
-                                ArticleListScreen(
-                                    onArticleClick = { selectedArticleId = it },
-                                    modifier = Modifier.padding(innerPadding),
-                                    viewModel = articleViewModel
-                                )
-                            } else {
-                                ArticleDetailScreen(
-                                    articleId = articleId,
-                                    onBackToList = {
-                                        articleViewModel.refresh()
-                                        selectedArticleId = null
-                                    },
-                                    modifier = Modifier.padding(innerPadding)
-                                )
+                            when (selectedTab) {
+                                MainTab.READ -> saveableStateHolder.SaveableStateProvider("tab_read") {
+                                    if (articleId == null) {
+                                        ArticleListScreen(
+                                            onArticleClick = { selectedArticleId = it },
+                                            modifier = Modifier.padding(innerPadding),
+                                            viewModel = articleViewModel
+                                        )
+                                    } else {
+                                        ArticleDetailScreen(
+                                            articleId = articleId,
+                                            onBackToList = {
+                                                articleViewModel.refresh()
+                                                selectedArticleId = null
+                                            },
+                                            modifier = Modifier.padding(innerPadding)
+                                        )
+                                    }
+                                }
+
+                                MainTab.WORDS -> saveableStateHolder.SaveableStateProvider("tab_words") {
+                                    SavedWordsScreen(
+                                        modifier = Modifier.padding(innerPadding)
+                                    )
+                                }
                             }
                         }
 
@@ -128,7 +171,6 @@ class MainActivity : ComponentActivity() {
                             } else {
                                 LoginScreen(
                                     modifier = Modifier.padding(innerPadding),
-                                    // Đăng nhập xong, token được lưu -> authState tự chuyển LoggedIn
                                     onLoginSuccess = { },
                                     onGoToRegister = { showRegister = true }
                                 )

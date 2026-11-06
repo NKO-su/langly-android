@@ -33,6 +33,7 @@ fun ArticleDetailScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val uriHandler = LocalUriHandler.current
+    val scrollState = rememberScrollState()
 
     LaunchedEffect(articleId) {
         viewModel.load(articleId)
@@ -48,7 +49,7 @@ fun ArticleDetailScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
+                        .verticalScroll(scrollState)
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {

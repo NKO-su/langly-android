@@ -1,6 +1,5 @@
 package com.langly.langly_android.ui.article
 
-import YOUR_PACKAGE.ui.articles.ArticleBody
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -29,7 +28,8 @@ fun ArticleDetailScreen(
     articleId: Long,
     onBackToList: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: ArticleDetailViewModel = viewModel()
+    viewModel: ArticleDetailViewModel = viewModel(),
+    popupViewModel: WordPopupViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsState()
     val uriHandler = LocalUriHandler.current
@@ -64,7 +64,10 @@ fun ArticleDetailScreen(
                         Text(it, style = MaterialTheme.typography.bodyLarge)
                     }
                     s.article.body?.let {
-                        ArticleBody(html = it)
+                        ArticleBody(
+                            html = it,
+                            onTextSelected = popupViewModel::onTextSelected
+                        )
                     }
                     s.article.webUrl?.let { url ->
                         OutlinedButton(onClick = { uriHandler.openUri(url) }) {
@@ -99,6 +102,8 @@ fun ArticleDetailScreen(
                 )
             }
         }
+
+        WordPopupSheet(viewModel = popupViewModel)
     }
 }
 

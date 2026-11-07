@@ -25,6 +25,9 @@ interface VocabWordDao {
     @Query("SELECT * FROM vocab_words WHERE id = :id")
     suspend fun getById(id: Long): VocabWord?
 
+    @Query("SELECT COUNT(*) FROM vocab_words WHERE LOWER(word) = LOWER(:word)")
+    suspend fun countByWord(word: String): Int
+
     @Query("UPDATE vocab_words SET meaning = :meaning, note = :note WHERE id = :id")
     suspend fun update(id: Long, meaning: String, note: String)
 

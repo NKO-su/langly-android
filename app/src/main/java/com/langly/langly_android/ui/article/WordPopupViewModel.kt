@@ -5,8 +5,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.langly.langly_android.data.local.AppDatabase
 import com.langly.langly_android.data.local.VocabWord
-import com.langly.langly_android.dictionary.DictionaryDatabase
 import com.langly.langly_android.dictionary.DictionaryMeaning
+import com.langly.langly_android.dictionary.lookupWithForms // ĐỔI: thay import DictionaryDatabase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -42,7 +42,7 @@ class WordPopupViewModel(application: Application) : AndroidViewModel(applicatio
         lookupJob = viewModelScope.launch {
             val savedCount = dao.countByWord(text)
             val meanings = if (isPhrase) emptyList()
-            else DictionaryDatabase.lookup(getApplication(), text)
+            else lookupWithForms(getApplication(), text)
 
             _state.update { current ->
                 if (current?.text == text) {

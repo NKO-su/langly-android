@@ -59,7 +59,7 @@ private fun WordPopupContent(
     var word by remember(state.text) { mutableStateOf(state.text) }
     var meaning by remember(state.text, state.isLoading) {
         mutableStateOf(
-            state.meanings.take(PREVIEW_MEANINGS).joinToString("; ") { it.definition.orEmpty() }
+            joinMeanings(state.meanings.take(PREVIEW_MEANINGS).map { it.definition.orEmpty() })
         )
     }
     var note by remember(state.text) { mutableStateOf("") }
@@ -136,7 +136,7 @@ private fun WordPopupContent(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable {
-                            meaning = if (meaning.isBlank()) definition else "$meaning; $definition"
+                            meaning = appendMeaning(meaning, definition)
                         }
                         .padding(vertical = 8.dp)
                 ) {

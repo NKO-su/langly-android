@@ -49,17 +49,4 @@ class SavedWordsViewModel(application: Application) : AndroidViewModel(applicati
     fun deleteWord(id: Long) {
         viewModelScope.launch { dao.delete(id) }
     }
-
-    fun addSampleWord() {
-        viewModelScope.launch {
-            val now = System.currentTimeMillis()
-            dao.insert(
-                VocabWord(
-                    word = "sample${now % 1000}",
-                    meaning = "zsdfrhtrhrthrthfdgdfghjdfghgfhrthrthrthrthrthrthrthrthrthx",
-                    savedAt = now
-                )
-            )
-        }
-    }
 }

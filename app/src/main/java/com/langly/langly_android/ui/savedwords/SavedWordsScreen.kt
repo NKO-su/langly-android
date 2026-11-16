@@ -5,7 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,7 +13,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -34,6 +32,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.langly.langly_android.data.local.VocabWord
+import com.langly.langly_android.ui.article.splitMeanings
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -49,7 +48,6 @@ fun SavedWordsScreen(
 
     val listState = rememberLazyListState()
 
-
     BackHandler(enabled = selectedWord != null) {
         viewModel.closeWord()
     }
@@ -59,10 +57,6 @@ fun SavedWordsScreen(
         WordDetailContent(
             word = word,
             onBack = viewModel::closeWord,
-            onSave = { meaning, note ->
-                viewModel.updateWord(word.id, meaning, note)
-                viewModel.closeWord()
-            },
             onDelete = {
                 viewModel.deleteWord(word.id)
                 viewModel.closeWord()
@@ -106,6 +100,7 @@ fun SavedWordsScreen(
                             modifier = Modifier.fillMaxSize()
                         ) {
                             items(list, key = { it.id }) { item ->
+                                val preview = splitMeanings(item.meaning).firstOrNull().orEmpty()
                                 Column(
                                     modifier = Modifier.clickable { viewModel.openWord(item.id) }
                                 ) {
@@ -114,9 +109,9 @@ fun SavedWordsScreen(
                                             text = item.word,
                                             style = MaterialTheme.typography.titleMedium
                                         )
-                                        if (item.meaning.isNotBlank()) {
+                                        if (preview.isNotBlank()) {
                                             Text(
-                                                text = item.meaning,
+                                                text = preview,
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
@@ -130,12 +125,6 @@ fun SavedWordsScreen(
                     }
                 }
             }
-            TextButton(
-                onClick = viewModel::addSampleWord,
-                modifier = Modifier.padding(8.dp)
-            ) {
-                Text("Thêm từ mẫu (tạm)")
-            }
         }
     }
 }
@@ -144,17 +133,15 @@ fun SavedWordsScreen(
 private fun WordDetailContent(
     word: VocabWord,
     onBack: () -> Unit,
-    onSave: (meaning: String, note: String) -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var meaning by remember(word.id) { mutableStateOf(word.meaning) }
-    var note by remember(word.id) { mutableStateOf(word.note) }
     var confirmDelete by remember(word.id) { mutableStateOf(false) }
 
     val savedAtText = remember(word.savedAt) {
         SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(word.savedAt))
     }
+    val meanings = remember(word.meaning) { splitMeanings(word.meaning) }
 
     Column(
         modifier = modifier
@@ -174,31 +161,43 @@ private fun WordDetailContent(
             style = MaterialTheme.typography.bodySmall
         )
 
-        OutlinedTextField(
-            value = meaning,
-            onValueChange = { meaning = it },
-            label = { Text("Nghĩa") },
-            minLines = 2,
-            modifier = Modifier.fillMaxWidth()
-        )
-        OutlinedTextField(
-            value = note,
-            onValueChange = { note = it },
-            label = { Text("Ghi chú") },
-            minLines = 3,
-            modifier = Modifier.fillMaxWidth()
-        )
+        if (meanings.isEmpty()) {
+            Text(
+                text = "Chưa có nghĩa",
+                style = MaterialTheme.typography.bodyMedium
+            )
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                meanings.forEach { meaning ->
+                    Text(
+                        text = "• $meaning",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(onClick = { onSave(meaning, note) }) { Text("Lưu") }
-            OutlinedButton(
-                onClick = { if (confirmDelete) onDelete() else confirmDelete = true }
-            ) {
+        if (word.note.isNotBlank()) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = if (confirmDelete) "Chắc chắn xóa ?" else " Xóa ",
-                    color = MaterialTheme.colorScheme.error
+                    text = "Ghi chú",
+                    style = MaterialTheme.typography.labelMedium
+                )
+                Text(
+                    text = word.note,
+                    style = MaterialTheme.typography.bodyMedium
                 )
             }
+        }
+
+        // THÊM: bấm lần 1 hỏi lại, bấm lần 2 mới xóa
+        OutlinedButton(
+            onClick = { if (confirmDelete) onDelete() else confirmDelete = true }
+        ) {
+            Text(
+                text = if (confirmDelete) "Chắc chắn xóa?" else "Xóa từ",
+                color = MaterialTheme.colorScheme.error
+            )
         }
     }
 }

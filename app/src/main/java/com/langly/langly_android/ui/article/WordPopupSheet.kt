@@ -1,7 +1,6 @@
 package com.langly.langly_android.ui.article
 
 import android.widget.Toast
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,7 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
-private const val PREVIEW_MEANINGS = 2
+private const val PREVIEW_MEANINGS = 3
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,7 +44,7 @@ fun WordPopupSheet(viewModel: WordPopupViewModel) {
             state = current,
             onSave = { word, meaning, note ->
                 viewModel.save(word, meaning, note)
-                Toast.makeText(context, "Đã lưu \"${word.trim()}\"", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Đã lưu \"$word\"", Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -56,14 +55,13 @@ private fun WordPopupContent(
     state: WordPopupState,
     onSave: (word: String, meaning: String, note: String) -> Unit
 ) {
-    var word by remember(state.text) { mutableStateOf(state.text) }
-    var meaning by remember(state.text, state.isLoading) {
-        mutableStateOf(
-            joinMeanings(state.meanings.take(PREVIEW_MEANINGS).map { it.definition.orEmpty() })
-        )
+    val entryWord = state.meanings.firstOrNull()?.headword ?: state.text
+    val meaningText = remember(state.meanings) {
+        joinMeanings(state.meanings.map { it.definition.orEmpty() })
     }
     var note by remember(state.text) { mutableStateOf("") }
     var showAll by remember(state.text) { mutableStateOf(false) }
+    val shown = if (showAll) state.meanings else state.meanings.take(PREVIEW_MEANINGS)
 
     Column(
         modifier = Modifier
@@ -73,13 +71,14 @@ private fun WordPopupContent(
             .padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        OutlinedTextField(
-            value = word,
-            onValueChange = { word = it },
-            label = { Text("Từ") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
+        Text(text = entryWord, style = MaterialTheme.typography.headlineSmall)
+
+        if (entryWord != state.text && state.meanings.isNotEmpty()) {
+            Text(
+                text = "Từ bạn chọn: \"${state.text}\"",
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
 
         if (state.savedCount > 0) {
             Text(
@@ -92,22 +91,38 @@ private fun WordPopupContent(
         when {
             state.isLoading -> CircularProgressIndicator()
             state.isPhrase -> Text(
-                "Bạn đang chọn nhiều từ: hãy tự nhập nghĩa.",
+                "Bạn đang chọn nhiều từ: chưa có bản dịch cho cụm. Bạn vẫn lưu được kèm ghi chú.",
                 style = MaterialTheme.typography.bodySmall
             )
             state.meanings.isEmpty() -> Text(
-                "Không tìm thấy trong từ điển: hãy tự nhập nghĩa.",
+                "Không tìm thấy trong từ điển. Bạn vẫn lưu được kèm ghi chú.",
                 style = MaterialTheme.typography.bodySmall
             )
         }
 
-        OutlinedTextField(
-            value = meaning,
-            onValueChange = { meaning = it },
-            label = { Text("Nghĩa") },
-            minLines = 2,
-            modifier = Modifier.fillMaxWidth()
-        )
+        shown.forEach { m ->
+            val pos = m.partOfSpeech.toString()
+            val example = m.example.orEmpty()
+            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                Text(pos, style = MaterialTheme.typography.labelSmall)
+                Text(
+                    text = "• " + cleanMeaning(m.definition.orEmpty()),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                if (showAll && example.isNotBlank()) {
+                    Text(example, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+
+        if (state.meanings.size > PREVIEW_MEANINGS) {
+            TextButton(onClick = { showAll = !showAll }) {
+                Text(if (showAll) "Ẩn bớt" else "Xem tất cả nghĩa (${state.meanings.size})")
+            }
+        }
+
+        HorizontalDivider()
+
         OutlinedTextField(
             value = note,
             onValueChange = { note = it },
@@ -116,45 +131,9 @@ private fun WordPopupContent(
             modifier = Modifier.fillMaxWidth()
         )
 
-        if (state.meanings.size > PREVIEW_MEANINGS) {
-            TextButton(onClick = { showAll = !showAll }) {
-                Text(if (showAll) "Ẩn bớt" else "Xem tất cả nghĩa (${state.meanings.size})")
-            }
-        }
-
-        if (showAll) {
-            Text(
-                "Chạm vào một nghĩa để thêm vào ô Nghĩa.",
-                style = MaterialTheme.typography.bodySmall
-            )
-            state.meanings.forEach { m ->
-                val definition = m.definition.orEmpty()
-                val pos = m.partOfSpeech?.toString().orEmpty()
-                val example = m.example.orEmpty()
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            meaning = appendMeaning(meaning, definition)
-                        }
-                        .padding(vertical = 8.dp)
-                ) {
-                    if (pos.isNotBlank()) {
-                        Text(pos, style = MaterialTheme.typography.labelSmall)
-                    }
-                    Text(definition, style = MaterialTheme.typography.bodyMedium)
-                    if (example.isNotBlank()) {
-                        Text(example, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-                HorizontalDivider()
-            }
-        }
-
         Button(
-            onClick = { onSave(word, meaning, note) },
-            enabled = word.isNotBlank(),
+            onClick = { onSave(entryWord, meaningText, note) },
+            enabled = !state.isLoading && entryWord.isNotBlank(),
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Lưu")

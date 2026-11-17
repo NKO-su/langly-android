@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -38,6 +37,8 @@ import com.langly.langly_android.network.TokenManager
 import com.langly.langly_android.ui.article.ArticleDetailScreen
 import com.langly.langly_android.ui.article.ArticleListScreen
 import com.langly.langly_android.ui.article.ArticleViewModel
+import com.langly.langly_android.ui.translate.TranslateFab
+import com.langly.langly_android.ui.translate.WordPopupViewModel
 import com.langly.langly_android.ui.login.LoginScreen
 import com.langly.langly_android.ui.register.RegisterScreen
 import com.langly.langly_android.ui.savedwords.SavedWordsScreen
@@ -124,36 +125,47 @@ class MainActivity : ComponentActivity() {
 
                         AuthState.LoggedIn -> {
                             val articleViewModel: ArticleViewModel = viewModel()
+                            val popupViewModel: WordPopupViewModel = viewModel()
                             val articleId = selectedArticleId
 
                             BackHandler(enabled = selectedTab == MainTab.READ && articleId != null) {
                                 selectedArticleId = null
                             }
 
-                            when (selectedTab) {
-                                MainTab.READ -> saveableStateHolder.SaveableStateProvider("tab_read") {
-                                    if (articleId == null) {
-                                        ArticleListScreen(
-                                            onArticleClick = { selectedArticleId = it },
-                                            modifier = Modifier.padding(innerPadding),
-                                            viewModel = articleViewModel
-                                        )
-                                    } else {
-                                        ArticleDetailScreen(
-                                            articleId = articleId,
-                                            onBackToList = {
-                                                articleViewModel.refresh()
-                                                selectedArticleId = null
-                                            },
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                when (selectedTab) {
+                                    MainTab.READ -> saveableStateHolder.SaveableStateProvider("tab_read") {
+                                        if (articleId == null) {
+                                            ArticleListScreen(
+                                                onArticleClick = { selectedArticleId = it },
+                                                modifier = Modifier.padding(innerPadding),
+                                                viewModel = articleViewModel
+                                            )
+                                        } else {
+                                            ArticleDetailScreen(
+                                                articleId = articleId,
+                                                popupViewModel = popupViewModel,
+                                                onBackToList = {
+                                                    articleViewModel.refresh()
+                                                    selectedArticleId = null
+                                                },
+                                                modifier = Modifier.padding(innerPadding)
+                                            )
+                                        }
+                                    }
+
+                                    MainTab.WORDS -> saveableStateHolder.SaveableStateProvider("tab_words") {
+                                        SavedWordsScreen(
                                             modifier = Modifier.padding(innerPadding)
                                         )
                                     }
                                 }
-
-                                MainTab.WORDS -> saveableStateHolder.SaveableStateProvider("tab_words") {
-                                    SavedWordsScreen(
-                                        modifier = Modifier.padding(innerPadding)
-                                    )
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(innerPadding)
+                                ) {
+                                    TranslateFab(viewModel = popupViewModel)
                                 }
                             }
                         }

@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.langly.langly_android.ui.translate.WordPopupViewModel
 
 @Composable
 fun ArticleDetailScreen(
@@ -76,9 +77,6 @@ fun ArticleDetailScreen(
                     }
                     PoweredByGuardian()
                 }
-
-                // Nút Dịch nổi, chỉ hiện khi đã có bài để đọc
-                TranslateFab(viewModel = popupViewModel)
             }
 
             ArticleDetailUiState.NotFound -> {

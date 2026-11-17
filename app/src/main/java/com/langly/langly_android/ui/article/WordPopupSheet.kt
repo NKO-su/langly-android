@@ -26,6 +26,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.langly.langly_android.ui.translate.WordPopupState
+import com.langly.langly_android.ui.translate.WordPopupViewModel
+import com.langly.langly_android.ui.translate.cleanMeaning
+import com.langly.langly_android.ui.translate.joinMeanings
 
 private const val PREVIEW_MEANINGS = 3
 

@@ -1,4 +1,4 @@
-package com.langly.langly_android.ui.article
+package com.langly.langly_android.ui.translate
 
 private val WHITESPACE = Regex("\\s+")
 

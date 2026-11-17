@@ -32,7 +32,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.langly.langly_android.data.local.VocabWord
-import com.langly.langly_android.ui.article.splitMeanings
+import com.langly.langly_android.ui.translate.splitMeanings
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale

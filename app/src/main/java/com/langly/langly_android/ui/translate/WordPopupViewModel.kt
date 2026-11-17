@@ -1,4 +1,4 @@
-package com.langly.langly_android.ui.article
+package com.langly.langly_android.ui.translate
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel

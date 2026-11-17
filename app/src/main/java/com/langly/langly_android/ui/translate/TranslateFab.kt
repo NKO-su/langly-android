@@ -1,4 +1,4 @@
-package com.langly.langly_android.ui.article
+package com.langly.langly_android.ui.translate
 
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
@@ -48,15 +48,10 @@ import com.langly.langly_android.dictionary.PartOfSpeech
 
 private const val PREVIEW_MEANINGS = 3
 
-/** Giữ kết quả cuối cùng để lúc thẻ thu lại, nội dung không nhảy sang ô nhập. */
 private class StateHolder {
     var value: WordPopupState? = null
 }
 
-/**
- * Nút Dịch nổi ở góc phải dưới. Một khung (Surface) biến hình giữa hai trạng thái:
- * nút nhỏ <-> thẻ. Khung đổi kích thước, bo góc và màu; nội dung bên trong mờ dần rồi hiện ra.
- */
 @Composable
 fun BoxScope.TranslateFab(viewModel: WordPopupViewModel) {
     val state by viewModel.state.collectAsState()

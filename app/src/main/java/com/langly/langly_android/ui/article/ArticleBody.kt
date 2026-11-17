@@ -81,7 +81,6 @@ fun ArticleBody(
             .pointerInput(styled) {
                 var anchor: TextRange? = null
                 var before: TextRange? = null
-
                 detectDragGesturesAfterLongPress(
                     onDragStart = { position ->
                         val l = layout ?: return@detectDragGesturesAfterLongPress
@@ -100,9 +99,11 @@ fun ArticleBody(
                         val a = anchor
                         val sel = selection
                         anchor = null
-                        if (a != null && sel != null && sel != a) {
-                            val text = styled.text.substring(sel.start, sel.end).trim()
-                            if (text.isNotEmpty()) currentOnTextSelected(text)
+                        val text = if (a != null && sel != null) {
+                            styled.text.substring(sel.start, sel.end).trim()
+                        } else ""
+                        if (text.isNotEmpty()) {
+                            currentOnTextSelected(text)
                         } else {
                             selection = before
                         }
@@ -115,6 +116,7 @@ fun ArticleBody(
             }
     )
 }
+
 private fun wordRangeAt(layout: TextLayoutResult, position: Offset): TextRange {
     val x = position.x.coerceIn(0f, layout.size.width.toFloat())
     val y = position.y.coerceIn(0f, (layout.size.height - 1).toFloat().coerceAtLeast(0f))

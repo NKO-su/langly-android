@@ -7,6 +7,7 @@ import com.langly.langly_android.data.local.AppDatabase
 import com.langly.langly_android.data.local.VocabWord
 import com.langly.langly_android.dictionary.DictionaryMeaning
 import com.langly.langly_android.dictionary.lookupWithForms
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,18 +19,21 @@ data class WordPopupState(
     val meanings: List<DictionaryMeaning> = emptyList(),
     val isLoading: Boolean = true,
     val isPhrase: Boolean = false,
+    val isError: Boolean = false,
     val savedCount: Int = 0
-)
+) {
+    val entryWord: String get() = meanings.firstOrNull()?.headword ?: text
+}
 
 class WordPopupViewModel(application: Application) : AndroidViewModel(application) {
 
     private val dao = AppDatabase.getInstance(application).vocabWordDao()
-
     private val _state = MutableStateFlow<WordPopupState?>(null)
     val state: StateFlow<WordPopupState?> = _state
+    private val _isCardOpen = MutableStateFlow(false)
+    val isCardOpen: StateFlow<Boolean> = _isCardOpen
 
     private var lookupJob: Job? = null
-
     fun onTextSelected(raw: String) {
         val text = raw.trim { !it.isLetterOrDigit() }
         if (text.isEmpty()) return
@@ -37,30 +41,52 @@ class WordPopupViewModel(application: Application) : AndroidViewModel(applicatio
         val isPhrase = text.any { it.isWhitespace() }
 
         lookupJob?.cancel()
+        _isCardOpen.value = true
         _state.value = WordPopupState(text = text, isLoading = !isPhrase, isPhrase = isPhrase)
 
         lookupJob = viewModelScope.launch {
-            val meanings = if (isPhrase) emptyList()
-            else lookupWithForms(getApplication(), text)
-            val entryWord = meanings.firstOrNull()?.headword ?: text
-            val savedCount = dao.countByWord(entryWord)
+            val result = try {
+                val meanings: List<DictionaryMeaning> =
+                    if (isPhrase) emptyList() else lookupWithForms(getApplication(), text)
+                val entryWord = meanings.firstOrNull()?.headword ?: text
+                WordPopupState(
+                    text = text,
+                    meanings = meanings,
+                    isLoading = false,
+                    isPhrase = isPhrase,
+                    savedCount = dao.countByWord(entryWord)
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                WordPopupState(text = text, isLoading = false, isPhrase = isPhrase, isError = true)
+            }
 
-            _state.update { current ->
-                if (current?.text == text) {
-                    WordPopupState(
-                        text = text,
-                        meanings = meanings,
-                        isLoading = false,
-                        isPhrase = isPhrase,
-                        savedCount = savedCount
-                    )
-                } else {
-                    current
-                }
+            _state.update { current -> if (current?.text == text) result else current }
+        }
+    }
+    fun saveCurrent() {
+        val current = _state.value ?: return
+        if (current.isLoading || current.isPhrase || current.isError) return
+
+        val entryWord = current.entryWord
+        val meaning = joinMeanings(current.meanings.map { it.definition })
+
+        viewModelScope.launch {
+            dao.insert(
+                VocabWord(
+                    word = entryWord,
+                    meaning = meaning,
+                    note = "",
+                    savedAt = System.currentTimeMillis()
+                )
+            )
+            _state.update { cur ->
+                if (cur != null && cur.text == current.text) cur.copy(savedCount = cur.savedCount + 1)
+                else cur
             }
         }
     }
-
     fun save(word: String, meaning: String, note: String) {
         val trimmedWord = word.trim()
         if (trimmedWord.isEmpty()) return
@@ -77,8 +103,16 @@ class WordPopupViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun openCard() {
+        _isCardOpen.value = true
+    }
+    fun newLookup() {
+        lookupJob?.cancel()
+        _state.value = null
+    }
     fun dismiss() {
         lookupJob?.cancel()
         _state.value = null
+        _isCardOpen.value = false
     }
 }

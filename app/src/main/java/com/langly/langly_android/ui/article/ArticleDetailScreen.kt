@@ -50,7 +50,7 @@ fun ArticleDetailScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(scrollState)
-                        .padding(16.dp),
+                        .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 96.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(s.article.title, style = MaterialTheme.typography.headlineSmall)
@@ -76,6 +76,9 @@ fun ArticleDetailScreen(
                     }
                     PoweredByGuardian()
                 }
+
+                // Nút Dịch nổi, chỉ hiện khi đã có bài để đọc
+                TranslateFab(viewModel = popupViewModel)
             }
 
             ArticleDetailUiState.NotFound -> {
@@ -102,8 +105,6 @@ fun ArticleDetailScreen(
                 )
             }
         }
-
-        WordPopupSheet(viewModel = popupViewModel)
     }
 }
 

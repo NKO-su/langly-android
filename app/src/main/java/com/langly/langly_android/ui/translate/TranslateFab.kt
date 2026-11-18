@@ -10,21 +10,22 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -49,13 +50,15 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp as lerpDp
 import androidx.compose.ui.unit.sp
+import com.langly.langly_android.dictionary.DictionaryMeaning
 import com.langly.langly_android.dictionary.PartOfSpeech
-
-private const val PREVIEW_MEANINGS = 3
+private const val MAX_POS_GROUPS = 2
+private const val MAX_PER_GROUP = 2
 
 private val BUTTON_SIZE = 56.dp
 private val SCREEN_MARGIN = 16.dp
-private val CARD_HEIGHT = 360.dp
+private val CARD_HEIGHT = 300.dp
+
 private enum class FabMode { BUTTON, CARD }
 
 private class StateHolder {
@@ -73,7 +76,6 @@ fun BoxScope.TranslateFab(viewModel: WordPopupViewModel) {
     val holder = remember { StateHolder() }
     if (isOpen) holder.value = state
     val shownState = holder.value
-
     val mode = if (isOpen) FabMode.CARD else FabMode.BUTTON
     val transition = updateTransition(targetState = mode, label = "fab-mode")
     val progress by transition.animateFloat(
@@ -109,7 +111,6 @@ fun BoxScope.TranslateFab(viewModel: WordPopupViewModel) {
                     TranslateCardContent(
                         state = shownState,
                         onSubmit = viewModel::onTextSelected,
-                        onNewLookup = viewModel::newLookup,
                         onSave = {
                             val current = state
                             if (current != null) {
@@ -172,14 +173,12 @@ private fun FabButtonContent(onClick: () -> Unit) {
 private fun TranslateCardContent(
     state: WordPopupState?,
     onSubmit: (String) -> Unit,
-    onNewLookup: () -> Unit,
     onSave: () -> Unit,
     onClose: () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -199,7 +198,7 @@ private fun TranslateCardContent(
         if (state == null) {
             InputSection(onSubmit = onSubmit)
         } else {
-            ResultSection(state = state, onSave = onSave, onNewLookup = onNewLookup)
+            ResultSection(state = state, onSave = onSave)
         }
     }
 }
@@ -230,14 +229,21 @@ private fun InputSection(onSubmit: (String) -> Unit) {
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ResultSection(
+private fun ColumnScope.ResultSection(
     state: WordPopupState,
-    onSave: () -> Unit,
-    onNewLookup: () -> Unit
+    onSave: () -> Unit
 ) {
-    var showAll by remember(state.text) { mutableStateOf(false) }
-    val shown = if (showAll) state.meanings else state.meanings.take(PREVIEW_MEANINGS)
+    val phonetic = state.meanings.firstOrNull()?.phonetic
+
+    if (!phonetic.isNullOrBlank()) {
+        Text(
+            text = phonetic,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
 
     if (state.entryWord != state.text && state.meanings.isNotEmpty()) {
         Text(
@@ -270,42 +276,59 @@ private fun ResultSection(
         )
     }
 
-    shown.forEach { m ->
-        val example = m.example.orEmpty()
-        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-            Text(m.partOfSpeech.label(), style = MaterialTheme.typography.labelSmall)
-            Text(
-                text = "• " + cleanMeaning(m.definition),
-                style = MaterialTheme.typography.bodyMedium
-            )
-            if (showAll && example.isNotBlank()) {
-                Text(example, style = MaterialTheme.typography.bodySmall)
+    val groups = remember(state.meanings) { basicMeanings(state.meanings) }
+    if (groups.isNotEmpty()) {
+        Text(
+            text = "Một số nghĩa cơ bản",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        groups.forEach { (pos, definitions) ->
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(pos.label(), style = MaterialTheme.typography.labelSmall)
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    definitions.forEach { MeaningChip(it) }
+                }
             }
         }
     }
-
-    if (state.meanings.size > PREVIEW_MEANINGS) {
-        TextButton(onClick = { showAll = !showAll }) {
-            Text(if (showAll) "Ẩn bớt" else "Xem tất cả nghĩa (${state.meanings.size})")
-        }
-    }
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    Spacer(modifier = Modifier.weight(1f))
+    Button(
+        onClick = onSave,
+        enabled = !state.isLoading && !state.isPhrase && !state.isError,
+        modifier = Modifier.fillMaxWidth()
     ) {
-        OutlinedButton(onClick = onNewLookup, modifier = Modifier.weight(1f)) {
-            Text("Tra từ khác")
-        }
-        Button(
-            onClick = onSave,
-            enabled = !state.isLoading && !state.isPhrase && !state.isError,
-            modifier = Modifier.weight(1f)
-        ) {
-            Text("Lưu")
-        }
+        Text("Lưu")
     }
 }
+
+@Composable
+private fun MeaningChip(text: String) {
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = MaterialTheme.colorScheme.secondaryContainer
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+        )
+    }
+}
+private fun basicMeanings(
+    meanings: List<DictionaryMeaning>
+): List<Pair<PartOfSpeech, List<String>>> =
+    meanings
+        .groupBy { it.partOfSpeech }
+        .entries
+        .take(MAX_POS_GROUPS)
+        .map { (pos, list) ->
+            pos to list.take(MAX_PER_GROUP)
+                .map { cleanMeaning(it.definition).trimEnd('.', ' ') }
+        }
 
 private fun PartOfSpeech.label(): String = when (this) {
     PartOfSpeech.NOUN -> "danh từ"

@@ -1,25 +1,21 @@
 package com.langly.langly_android.ui.translate
 
 import android.widget.Toast
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -41,12 +37,26 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp as lerpColor
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.lerp as lerpDp
+import androidx.compose.ui.unit.sp
 import com.langly.langly_android.dictionary.PartOfSpeech
 
 private const val PREVIEW_MEANINGS = 3
+
+private val BUTTON_SIZE = 56.dp
+private val SCREEN_MARGIN = 16.dp
+private val CARD_HEIGHT = 360.dp
+private enum class FabMode { BUTTON, CARD }
 
 private class StateHolder {
     var value: WordPopupState? = null
@@ -64,67 +74,97 @@ fun BoxScope.TranslateFab(viewModel: WordPopupViewModel) {
     if (isOpen) holder.value = state
     val shownState = holder.value
 
-    val corner by animateDpAsState(
-        targetValue = if (isOpen) 24.dp else 16.dp,
-        animationSpec = tween(300),
-        label = "corner"
-    )
-    val container by animateColorAsState(
-        targetValue = if (isOpen) MaterialTheme.colorScheme.surface
-        else MaterialTheme.colorScheme.primaryContainer,
-        animationSpec = tween(300),
-        label = "container"
-    )
+    val mode = if (isOpen) FabMode.CARD else FabMode.BUTTON
+    val transition = updateTransition(targetState = mode, label = "fab-mode")
+    val progress by transition.animateFloat(
+        transitionSpec = { tween(300) },
+        label = "fab-progress"
+    ) { m -> if (m == FabMode.CARD) 1f else 0f }
+
+    val cardWidth = LocalConfiguration.current.screenWidthDp.dp - SCREEN_MARGIN * 2
+    val buttonColor = MaterialTheme.colorScheme.primaryContainer
+    val cardColor = MaterialTheme.colorScheme.surface
 
     Surface(
-        shape = RoundedCornerShape(corner),
-        color = container,
+        shape = RoundedCornerShape(lerpDp(16.dp, 24.dp, progress)),
+        color = lerpColor(buttonColor, cardColor, progress),
         tonalElevation = 6.dp,
         shadowElevation = 8.dp,
         modifier = Modifier
             .align(Alignment.BottomEnd)
             .imePadding()
-            .padding(16.dp)
+            .padding(SCREEN_MARGIN)
+            .size(
+                width = lerpDp(BUTTON_SIZE, cardWidth, progress),
+                height = lerpDp(BUTTON_SIZE, CARD_HEIGHT, progress)
+            )
     ) {
-        AnimatedContent(
-            targetState = isOpen,
-            transitionSpec = {
-                (fadeIn(tween(220, delayMillis = 90)) togetherWith fadeOut(tween(90)))
-                    .using(SizeTransform(clip = true))
-            },
-            label = "translate-card"
-        ) { open ->
-            if (open) {
-                TranslateCardContent(
-                    state = shownState,
-                    onSubmit = viewModel::onTextSelected,
-                    onNewLookup = viewModel::newLookup,
-                    onSave = {
-                        val current = state
-                        if (current != null) {
-                            viewModel.saveCurrent()
-                            val msg = if (current.savedCount > 0) "Đã lưu thêm \"${current.entryWord}\""
-                            else "Đã lưu \"${current.entryWord}\""
-                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                    onClose = viewModel::dismiss
-                )
-            } else {
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (progress > 0f) {
                 Box(
                     modifier = Modifier
-                        .clickable(onClick = viewModel::openCard)
-                        .padding(horizontal = 24.dp, vertical = 16.dp),
-                    contentAlignment = Alignment.Center
+                        .graphicsLayer { alpha = ((progress - 0.4f) / 0.6f).coerceIn(0f, 1f) }
+                        .measureAtSize(cardWidth, CARD_HEIGHT)
                 ) {
-                    Text(
-                        text = "Dịch",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    TranslateCardContent(
+                        state = shownState,
+                        onSubmit = viewModel::onTextSelected,
+                        onNewLookup = viewModel::newLookup,
+                        onSave = {
+                            val current = state
+                            if (current != null) {
+                                viewModel.saveCurrent()
+                                val msg = if (current.savedCount > 0) "Đã lưu thêm \"${current.entryWord}\""
+                                else "Đã lưu \"${current.entryWord}\""
+                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        onClose = viewModel::dismiss
                     )
                 }
             }
+            if (progress < 1f) {
+                Box(
+                    modifier = Modifier
+                        .graphicsLayer { alpha = (1f - progress / 0.4f).coerceIn(0f, 1f) }
+                ) {
+                    FabButtonContent(onClick = viewModel::openCard)
+                }
+            }
         }
+    }
+}
+private fun Modifier.measureAtSize(width: Dp, height: Dp): Modifier =
+    this.layout { measurable, constraints ->
+        val placeable = measurable.measure(
+            Constraints.fixed(width.roundToPx(), height.roundToPx())
+        )
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            placeable.place(0, 0)
+        }
+    }
+
+@Composable
+private fun FabButtonContent(onClick: () -> Unit) {
+    val contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+    Column(
+        modifier = Modifier
+            .size(BUTTON_SIZE)
+            .clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "文A",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = contentColor
+        )
+        Text(
+            text = "Dịch",
+            fontSize = 11.sp,
+            color = contentColor
+        )
     }
 }
 
@@ -138,8 +178,7 @@ private fun TranslateCardContent(
 ) {
     Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(max = 460.dp)
+            .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)

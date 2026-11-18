@@ -31,6 +31,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,6 +39,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp as lerpColor
 import androidx.compose.ui.layout.layout
@@ -52,12 +55,13 @@ import androidx.compose.ui.unit.lerp as lerpDp
 import androidx.compose.ui.unit.sp
 import com.langly.langly_android.dictionary.DictionaryMeaning
 import com.langly.langly_android.dictionary.PartOfSpeech
+
 private const val MAX_POS_GROUPS = 2
 private const val MAX_PER_GROUP = 2
 
 private val BUTTON_SIZE = 56.dp
 private val SCREEN_MARGIN = 16.dp
-private val CARD_HEIGHT = 300.dp
+private val CARD_HEIGHT = 340.dp
 
 private enum class FabMode { BUTTON, CARD }
 
@@ -76,6 +80,7 @@ fun BoxScope.TranslateFab(viewModel: WordPopupViewModel) {
     val holder = remember { StateHolder() }
     if (isOpen) holder.value = state
     val shownState = holder.value
+
     val mode = if (isOpen) FabMode.CARD else FabMode.BUTTON
     val transition = updateTransition(targetState = mode, label = "fab-mode")
     val progress by transition.animateFloat(
@@ -110,7 +115,7 @@ fun BoxScope.TranslateFab(viewModel: WordPopupViewModel) {
                 ) {
                     TranslateCardContent(
                         state = shownState,
-                        onSubmit = viewModel::onTextSelected,
+                        onSubmit = viewModel::onTextTyped,
                         onSave = {
                             val current = state
                             if (current != null) {
@@ -135,6 +140,7 @@ fun BoxScope.TranslateFab(viewModel: WordPopupViewModel) {
         }
     }
 }
+
 private fun Modifier.measureAtSize(width: Dp, height: Dp): Modifier =
     this.layout { measurable, constraints ->
         val placeable = measurable.measure(
@@ -176,6 +182,8 @@ private fun TranslateCardContent(
     onSave: () -> Unit,
     onClose: () -> Unit
 ) {
+    val showInput = state == null || state.fromInput
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -188,24 +196,29 @@ private fun TranslateCardContent(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = state?.entryWord ?: "Dịch",
+                text = if (showInput) "Dịch" else state?.entryWord.orEmpty(),
                 style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.weight(1f)
             )
             TextButton(onClick = onClose) { Text("Đóng") }
         }
 
-        if (state == null) {
-            InputSection(onSubmit = onSubmit)
-        } else {
-            ResultSection(state = state, onSave = onSave)
+        if (showInput) {
+            LookupField(onSubmit = onSubmit, showHint = state == null)
+        }
+
+        if (state != null) {
+            ResultSection(state = state, showWord = state.fromInput, onSave = onSave)
         }
     }
 }
 
 @Composable
-private fun InputSection(onSubmit: (String) -> Unit) {
+private fun LookupField(onSubmit: (String) -> Unit, showHint: Boolean) {
     var input by remember { mutableStateOf("") }
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
     OutlinedTextField(
         value = input,
@@ -214,28 +227,33 @@ private fun InputSection(onSubmit: (String) -> Unit) {
         singleLine = true,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { onSubmit(input) }),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .focusRequester(focusRequester)
     )
-    Button(
-        onClick = { onSubmit(input) },
-        enabled = input.isNotBlank(),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text("Tra")
+    if (showHint) {
+        Text(
+            text = "Hoặc nhấn vào một từ trong bài để tra.",
+            style = MaterialTheme.typography.bodySmall
+        )
     }
-    Text(
-        text = "Hoặc nhấn vào một từ trong bài để tra.",
-        style = MaterialTheme.typography.bodySmall
-    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ColumnScope.ResultSection(
     state: WordPopupState,
+    showWord: Boolean,
     onSave: () -> Unit
 ) {
     val phonetic = state.meanings.firstOrNull()?.phonetic
+
+    if (showWord) {
+        Text(
+            text = state.entryWord,
+            style = MaterialTheme.typography.titleLarge
+        )
+    }
 
     if (!phonetic.isNullOrBlank()) {
         Text(
@@ -295,6 +313,7 @@ private fun ColumnScope.ResultSection(
             }
         }
     }
+
     Spacer(modifier = Modifier.weight(1f))
     Button(
         onClick = onSave,
@@ -318,6 +337,7 @@ private fun MeaningChip(text: String) {
         )
     }
 }
+
 private fun basicMeanings(
     meanings: List<DictionaryMeaning>
 ): List<Pair<PartOfSpeech, List<String>>> =

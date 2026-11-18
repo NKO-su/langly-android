@@ -20,7 +20,8 @@ data class WordPopupState(
     val isLoading: Boolean = true,
     val isPhrase: Boolean = false,
     val isError: Boolean = false,
-    val savedCount: Int = 0
+    val savedCount: Int = 0,
+    val fromInput: Boolean = false
 ) {
     val entryWord: String get() = meanings.firstOrNull()?.headword ?: text
 }
@@ -34,7 +35,12 @@ class WordPopupViewModel(application: Application) : AndroidViewModel(applicatio
     val isCardOpen: StateFlow<Boolean> = _isCardOpen
 
     private var lookupJob: Job? = null
-    fun onTextSelected(raw: String) {
+
+    fun onTextSelected(raw: String) = lookup(raw, fromInput = false)
+
+    fun onTextTyped(raw: String) = lookup(raw, fromInput = true)
+
+    private fun lookup(raw: String, fromInput: Boolean) {
         val text = raw.trim { !it.isLetterOrDigit() }
         if (text.isEmpty()) return
 
@@ -42,7 +48,12 @@ class WordPopupViewModel(application: Application) : AndroidViewModel(applicatio
 
         lookupJob?.cancel()
         _isCardOpen.value = true
-        _state.value = WordPopupState(text = text, isLoading = !isPhrase, isPhrase = isPhrase)
+        _state.value = WordPopupState(
+            text = text,
+            isLoading = !isPhrase,
+            isPhrase = isPhrase,
+            fromInput = fromInput
+        )
 
         lookupJob = viewModelScope.launch {
             val result = try {
@@ -54,17 +65,25 @@ class WordPopupViewModel(application: Application) : AndroidViewModel(applicatio
                     meanings = meanings,
                     isLoading = false,
                     isPhrase = isPhrase,
-                    savedCount = dao.countByWord(entryWord)
+                    savedCount = dao.countByWord(entryWord),
+                    fromInput = fromInput
                 )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                WordPopupState(text = text, isLoading = false, isPhrase = isPhrase, isError = true)
+                WordPopupState(
+                    text = text,
+                    isLoading = false,
+                    isPhrase = isPhrase,
+                    isError = true,
+                    fromInput = fromInput
+                )
             }
 
             _state.update { current -> if (current?.text == text) result else current }
         }
     }
+
     fun saveCurrent() {
         val current = _state.value ?: return
         if (current.isLoading || current.isPhrase || current.isError) return
@@ -87,6 +106,7 @@ class WordPopupViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
     }
+
     fun save(word: String, meaning: String, note: String) {
         val trimmedWord = word.trim()
         if (trimmedWord.isEmpty()) return
@@ -106,10 +126,12 @@ class WordPopupViewModel(application: Application) : AndroidViewModel(applicatio
     fun openCard() {
         _isCardOpen.value = true
     }
+
     fun newLookup() {
         lookupJob?.cancel()
         _state.value = null
     }
+
     fun dismiss() {
         lookupJob?.cancel()
         _state.value = null

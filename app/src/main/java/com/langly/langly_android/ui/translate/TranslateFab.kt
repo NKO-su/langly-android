@@ -2,11 +2,11 @@ package com.langly.langly_android.ui.translate
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -41,8 +41,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,7 +53,10 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp as lerpColor
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -65,6 +71,7 @@ import androidx.compose.ui.unit.lerp as lerpDp
 import androidx.compose.ui.unit.sp
 import com.langly.langly_android.dictionary.DictionaryMeaning
 import com.langly.langly_android.dictionary.PartOfSpeech
+import kotlinx.coroutines.launch
 
 private const val MAX_POS_GROUPS = 2
 private const val MAX_PER_GROUP = 2
@@ -78,6 +85,10 @@ private enum class FabMode { BUTTON, CARD, FULL }
 
 private class StateHolder {
     var value: WordPopupState? = null
+}
+
+private class CoordsHolder {
+    var coords: LayoutCoordinates? = null
 }
 
 private fun WordPopupState.hasResult(): Boolean =
@@ -97,6 +108,11 @@ fun TranslateFab(viewModel: WordPopupViewModel, bottomPadding: Dp) {
     val density = LocalDensity.current
 
     var isFull by remember { mutableStateOf(false) }
+    var dragging by remember { mutableStateOf(false) }
+    var dragValue by remember { mutableFloatStateOf(1f) }
+    var dragOrigin by remember { mutableFloatStateOf(1f) }
+    val progress = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
 
     BackHandler(enabled = isOpen) { viewModel.dismiss() }
     BackHandler(enabled = isFull) { isFull = false }
@@ -124,17 +140,17 @@ fun TranslateFab(viewModel: WordPopupViewModel, bottomPadding: Dp) {
         }
     }
 
-    val transition = updateTransition(targetState = mode, label = "fab-mode")
-    val progress by transition.animateFloat(
-        transitionSpec = { tween(300) },
-        label = "fab-progress"
-    ) { m ->
-        when (m) {
-            FabMode.BUTTON -> 0f
-            FabMode.CARD -> 1f
-            FabMode.FULL -> 2f
-        }
+    val target = when (mode) {
+        FabMode.BUTTON -> 0f
+        FabMode.CARD -> 1f
+        FabMode.FULL -> 2f
     }
+
+    LaunchedEffect(target, dragging) {
+        if (!dragging) progress.animateTo(target, tween(300))
+    }
+
+    val p = progress.value
 
     val save: () -> Unit = {
         val current = state
@@ -155,14 +171,46 @@ fun TranslateFab(viewModel: WordPopupViewModel, bottomPadding: Dp) {
         val fullHeight = maxHeight
         val cardWidth = fullWidth - SCREEN_MARGIN * 2
 
-        val toCard = progress.coerceIn(0f, 1f)
-        val toFull = (progress - 1f).coerceIn(0f, 1f)
+        val toCard = p.coerceIn(0f, 1f)
+        val toFull = (p - 1f).coerceIn(0f, 1f)
+        val bottomBase = maxOf(bottomPadding, imeBottom) + SCREEN_MARGIN
 
         val shellWidth = lerpDp(lerpDp(BUTTON_SIZE, cardWidth, toCard), fullWidth, toFull)
         val shellHeight = lerpDp(lerpDp(BUTTON_SIZE, CARD_HEIGHT, toCard), fullHeight, toFull)
         val corner = lerpDp(lerpDp(16.dp, 24.dp, toCard), 0.dp, toFull)
         val endMargin = lerpDp(SCREEN_MARGIN, 0.dp, toFull)
-        val bottomMargin = lerpDp(maxOf(bottomPadding, imeBottom) + SCREEN_MARGIN, 0.dp, toFull)
+        val bottomMargin = lerpDp(bottomBase, 0.dp, toFull)
+
+        val travelPx = with(density) { (fullHeight - bottomBase - CARD_HEIGHT).toPx() }.coerceAtLeast(1f)
+        val expandThreshold = with(density) { 50.dp.toPx() } / travelPx
+        val collapseThreshold = with(density) { 90.dp.toPx() } / travelPx
+
+        val onDragStart: () -> Unit = {
+            dragging = true
+            dragValue = progress.value.coerceIn(1f, 2f)
+            dragOrigin = dragValue
+        }
+        val onDragDelta: (Float) -> Unit = { dy ->
+            dragValue = (dragValue - dy / travelPx).coerceIn(1f, 2f)
+            scope.launch { progress.snapTo(dragValue) }
+        }
+        val onDragEnd: () -> Unit = {
+            val moved = dragValue - dragOrigin
+            isFull = if (dragOrigin >= 1.5f) moved > -collapseThreshold else moved >= expandThreshold
+            dragging = false
+        }
+        val cardHandleDrag = rememberHandleDrag(
+            enabled = canExpand,
+            onStart = onDragStart,
+            onDelta = onDragDelta,
+            onEnd = onDragEnd
+        )
+        val fullHandleDrag = rememberHandleDrag(
+            enabled = true,
+            onStart = onDragStart,
+            onDelta = onDragDelta,
+            onEnd = onDragEnd
+        )
 
         Surface(
             shape = RoundedCornerShape(corner),
@@ -175,15 +223,16 @@ fun TranslateFab(viewModel: WordPopupViewModel, bottomPadding: Dp) {
                 .size(width = shellWidth, height = shellHeight)
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                if (progress > 0f && progress < 2f) {
+                if (p > 0f && p < 2f) {
                     Box(
                         modifier = Modifier
-                            .graphicsLayer { alpha = cardAlpha(progress) }
+                            .graphicsLayer { alpha = cardAlpha(progress.value) }
                             .measureAtSize(cardWidth, CARD_HEIGHT)
                     ) {
                         TranslateCardContent(
                             state = shownState,
                             canExpand = canExpand,
+                            handleDrag = cardHandleDrag,
                             onExpand = { isFull = true },
                             onSubmit = viewModel::onTextTyped,
                             onSave = save,
@@ -191,24 +240,25 @@ fun TranslateFab(viewModel: WordPopupViewModel, bottomPadding: Dp) {
                         )
                     }
                 }
-                if (progress > 1f && shownState != null) {
+                if (p > 1f && shownState != null) {
                     Box(
                         modifier = Modifier
-                            .graphicsLayer { alpha = ((progress - 1.5f) / 0.5f).coerceIn(0f, 1f) }
+                            .graphicsLayer { alpha = ((progress.value - 1.5f) / 0.5f).coerceIn(0f, 1f) }
                             .measureAtSize(fullWidth, fullHeight)
                     ) {
                         FullContent(
                             state = shownState,
+                            handleDrag = fullHandleDrag,
                             onCollapse = { isFull = false },
                             onSave = save,
                             onClose = viewModel::dismiss
                         )
                     }
                 }
-                if (progress < 1f) {
+                if (p < 1f) {
                     Box(
                         modifier = Modifier
-                            .graphicsLayer { alpha = (1f - progress / 0.4f).coerceIn(0f, 1f) }
+                            .graphicsLayer { alpha = (1f - progress.value / 0.4f).coerceIn(0f, 1f) }
                     ) {
                         FabButtonContent(onClick = viewModel::openCard)
                     }
@@ -253,9 +303,42 @@ private fun FabButtonContent(onClick: () -> Unit) {
 }
 
 @Composable
-private fun GrabHandle(onClick: () -> Unit) {
+private fun rememberHandleDrag(
+    enabled: Boolean,
+    onStart: () -> Unit,
+    onDelta: (Float) -> Unit,
+    onEnd: () -> Unit
+): Modifier {
+    val holder = remember { CoordsHolder() }
+    val currentOnStart by rememberUpdatedState(onStart)
+    val currentOnDelta by rememberUpdatedState(onDelta)
+    val currentOnEnd by rememberUpdatedState(onEnd)
+
+    return Modifier
+        .onGloballyPositioned { holder.coords = it }
+        .pointerInput(enabled) {
+            if (!enabled) return@pointerInput
+            var lastY = 0f
+            detectVerticalDragGestures(
+                onDragStart = { offset ->
+                    lastY = holder.coords?.localToRoot(offset)?.y ?: 0f
+                    currentOnStart()
+                },
+                onDragEnd = { currentOnEnd() },
+                onDragCancel = { currentOnEnd() },
+                onVerticalDrag = { change, _ ->
+                    val y = holder.coords?.localToRoot(change.position)?.y ?: lastY
+                    currentOnDelta(y - lastY)
+                    lastY = y
+                }
+            )
+        }
+}
+
+@Composable
+private fun GrabHandle(onClick: () -> Unit, dragModifier: Modifier) {
     Box(
-        modifier = Modifier
+        modifier = dragModifier
             .fillMaxWidth()
             .height(HANDLE_HEIGHT)
             .clickable(onClick = onClick),
@@ -276,6 +359,7 @@ private fun GrabHandle(onClick: () -> Unit) {
 private fun TranslateCardContent(
     state: WordPopupState?,
     canExpand: Boolean,
+    handleDrag: Modifier,
     onExpand: () -> Unit,
     onSubmit: (String) -> Unit,
     onSave: () -> Unit,
@@ -285,7 +369,7 @@ private fun TranslateCardContent(
 
     Column(modifier = Modifier.fillMaxSize()) {
         if (canExpand) {
-            GrabHandle(onClick = onExpand)
+            GrabHandle(onClick = onExpand, dragModifier = handleDrag)
         } else {
             Spacer(modifier = Modifier.height(HANDLE_HEIGHT))
         }
@@ -324,6 +408,7 @@ private fun TranslateCardContent(
 @Composable
 private fun FullContent(
     state: WordPopupState,
+    handleDrag: Modifier,
     onCollapse: () -> Unit,
     onSave: () -> Unit,
     onClose: () -> Unit
@@ -337,7 +422,7 @@ private fun FullContent(
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {
-        GrabHandle(onClick = onCollapse)
+        GrabHandle(onClick = onCollapse, dragModifier = handleDrag)
 
         Column(
             modifier = Modifier

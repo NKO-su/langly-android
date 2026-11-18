@@ -70,7 +70,7 @@ private class StateHolder {
 }
 
 @Composable
-fun BoxScope.TranslateFab(viewModel: WordPopupViewModel) {
+fun BoxScope.TranslateFab(viewModel: WordPopupViewModel, bottomPadding: Dp) {
     val state by viewModel.state.collectAsState()
     val isOpen by viewModel.isCardOpen.collectAsState()
     val context = LocalContext.current
@@ -99,6 +99,7 @@ fun BoxScope.TranslateFab(viewModel: WordPopupViewModel) {
         shadowElevation = 8.dp,
         modifier = Modifier
             .align(Alignment.BottomEnd)
+            .padding(bottom = bottomPadding)
             .imePadding()
             .padding(SCREEN_MARGIN)
             .size(

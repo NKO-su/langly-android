@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -28,6 +29,7 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.langly.langly_android.model.RefreshRequest
@@ -68,6 +70,9 @@ class MainActivity : ComponentActivity() {
 
                 val saveableStateHolder = rememberSaveableStateHolder()
 
+                val popupViewModel: WordPopupViewModel = viewModel()
+                var bottomBarPadding by remember { mutableStateOf(0.dp) }
+
                 LaunchedEffect(authState) {
                     if (authState == AuthState.LoggedOut) {
                         selectedArticleId = null
@@ -76,118 +81,121 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                Scaffold(
-                    modifier = Modifier.fillMaxSize(),
-                    topBar = {
-                        if (authState == AuthState.LoggedIn &&
-                            (selectedTab == MainTab.WORDS || selectedArticleId == null)
-                        ) {
-                            TopAppBar(
-                                title = { Text("Ourilang") },
-                                actions = {
-                                    TextButton(onClick = { scope.launch { performLogout() } }) {
-                                        Text("Đăng xuất")
-                                    }
-                                }
-                            )
-                        }
-                    },
-                    bottomBar = {
-                        if (authState == AuthState.LoggedIn) {
-                            NavigationBar {
-                                NavigationBarItem(
-                                    selected = selectedTab == MainTab.READ,
-                                    onClick = { selectedTab = MainTab.READ },
-                                    icon = { Text("DOC") },
-                                    label = { Text("Đọc") }
-                                )
-                                NavigationBarItem(
-                                    selected = selectedTab == MainTab.WORDS,
-                                    onClick = { selectedTab = MainTab.WORDS },
-                                    icon = { Text("TUDALUC") },
-                                    label = { Text("Từ đã lưu") }
-                                )
-                            }
-                        }
-                    }
-                ) { innerPadding ->
-                    when (authState) {
-                        AuthState.Loading -> {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(innerPadding),
-                                contentAlignment = Alignment.Center
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Scaffold(
+                        modifier = Modifier.fillMaxSize(),
+                        topBar = {
+                            if (authState == AuthState.LoggedIn &&
+                                (selectedTab == MainTab.WORDS || selectedArticleId == null)
                             ) {
-                                CircularProgressIndicator()
+                                TopAppBar(
+                                    title = { Text("Ourilang") },
+                                    actions = {
+                                        TextButton(onClick = { scope.launch { performLogout() } }) {
+                                            Text("Đăng xuất")
+                                        }
+                                    }
+                                )
+                            }
+                        },
+                        bottomBar = {
+                            if (authState == AuthState.LoggedIn) {
+                                NavigationBar {
+                                    NavigationBarItem(
+                                        selected = selectedTab == MainTab.READ,
+                                        onClick = { selectedTab = MainTab.READ },
+                                        icon = { Text("DOC") },
+                                        label = { Text("Đọc") }
+                                    )
+                                    NavigationBarItem(
+                                        selected = selectedTab == MainTab.WORDS,
+                                        onClick = { selectedTab = MainTab.WORDS },
+                                        icon = { Text("TUDALUC") },
+                                        label = { Text("Từ đã lưu") }
+                                    )
+                                }
                             }
                         }
+                    ) { innerPadding ->
+                        SideEffect { bottomBarPadding = innerPadding.calculateBottomPadding() }
 
-                        AuthState.LoggedIn -> {
-                            val articleViewModel: ArticleViewModel = viewModel()
-                            val popupViewModel: WordPopupViewModel = viewModel()
-                            val articleId = selectedArticleId
-
-                            BackHandler(enabled = selectedTab == MainTab.READ && articleId != null) {
-                                selectedArticleId = null
+                        when (authState) {
+                            AuthState.Loading -> {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(innerPadding),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator()
+                                }
                             }
 
-                            Box(modifier = Modifier.fillMaxSize()) {
-                                when (selectedTab) {
-                                    MainTab.READ -> saveableStateHolder.SaveableStateProvider("tab_read") {
-                                        if (articleId == null) {
-                                            ArticleListScreen(
-                                                onArticleClick = { selectedArticleId = it },
-                                                modifier = Modifier.padding(innerPadding),
-                                                viewModel = articleViewModel
-                                            )
-                                        } else {
-                                            ArticleDetailScreen(
-                                                articleId = articleId,
-                                                popupViewModel = popupViewModel,
-                                                onBackToList = {
-                                                    articleViewModel.refresh()
-                                                    selectedArticleId = null
-                                                },
+                            AuthState.LoggedIn -> {
+                                val articleViewModel: ArticleViewModel = viewModel()
+                                val articleId = selectedArticleId
+
+                                BackHandler(enabled = selectedTab == MainTab.READ && articleId != null) {
+                                    selectedArticleId = null
+                                }
+
+                                Box(modifier = Modifier.fillMaxSize()) {
+                                    when (selectedTab) {
+                                        MainTab.READ -> saveableStateHolder.SaveableStateProvider("tab_read") {
+                                            if (articleId == null) {
+                                                ArticleListScreen(
+                                                    onArticleClick = { selectedArticleId = it },
+                                                    modifier = Modifier.padding(innerPadding),
+                                                    viewModel = articleViewModel
+                                                )
+                                            } else {
+                                                ArticleDetailScreen(
+                                                    articleId = articleId,
+                                                    popupViewModel = popupViewModel,
+                                                    onBackToList = {
+                                                        articleViewModel.refresh()
+                                                        selectedArticleId = null
+                                                    },
+                                                    modifier = Modifier.padding(innerPadding)
+                                                )
+                                            }
+                                        }
+
+                                        MainTab.WORDS -> saveableStateHolder.SaveableStateProvider("tab_words") {
+                                            SavedWordsScreen(
                                                 modifier = Modifier.padding(innerPadding)
                                             )
                                         }
                                     }
-
-                                    MainTab.WORDS -> saveableStateHolder.SaveableStateProvider("tab_words") {
-                                        SavedWordsScreen(
-                                            modifier = Modifier.padding(innerPadding)
-                                        )
-                                    }
                                 }
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(innerPadding)
-                                ) {
-                                    TranslateFab(viewModel = popupViewModel)
+                            }
+
+                            AuthState.LoggedOut -> {
+                                BackHandler(enabled = showRegister) {
+                                    showRegister = false
+                                }
+
+                                if (showRegister) {
+                                    RegisterScreen(
+                                        modifier = Modifier.padding(innerPadding),
+                                        onBackToLogin = { showRegister = false }
+                                    )
+                                } else {
+                                    LoginScreen(
+                                        modifier = Modifier.padding(innerPadding),
+                                        onLoginSuccess = { },
+                                        onGoToRegister = { showRegister = true }
+                                    )
                                 }
                             }
                         }
+                    }
 
-                        AuthState.LoggedOut -> {
-                            BackHandler(enabled = showRegister) {
-                                showRegister = false
-                            }
-
-                            if (showRegister) {
-                                RegisterScreen(
-                                    modifier = Modifier.padding(innerPadding),
-                                    onBackToLogin = { showRegister = false }
-                                )
-                            } else {
-                                LoginScreen(
-                                    modifier = Modifier.padding(innerPadding),
-                                    onLoginSuccess = { },
-                                    onGoToRegister = { showRegister = true }
-                                )
-                            }
-                        }
+                    if (authState == AuthState.LoggedIn) {
+                        TranslateFab(
+                            viewModel = popupViewModel,
+                            bottomPadding = bottomBarPadding
+                        )
                     }
                 }
             }

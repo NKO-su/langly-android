@@ -23,14 +23,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp as lerpColor
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
@@ -40,6 +43,7 @@ import kotlinx.coroutines.launch
 
 private val SCREEN_MARGIN = 16.dp
 private val CARD_HEIGHT = 360.dp
+private val SWIPE_THRESHOLD = 96.dp
 
 private enum class FabMode { BUTTON, CARD, FULL }
 
@@ -61,6 +65,7 @@ fun TranslateFab(viewModel: WordPopupViewModel, bottomPadding: Dp) {
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
+    val haptic = LocalHapticFeedback.current
     val density = LocalDensity.current
 
     var isFull by remember { mutableStateOf(false) }
@@ -69,6 +74,7 @@ fun TranslateFab(viewModel: WordPopupViewModel, bottomPadding: Dp) {
     var dragOrigin by remember { mutableFloatStateOf(1f) }
     val progress = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
+    val swipe = rememberSwipeState()
 
     BackHandler(enabled = isOpen) { viewModel.dismiss() }
     BackHandler(enabled = isFull) { isFull = false }
@@ -78,6 +84,8 @@ fun TranslateFab(viewModel: WordPopupViewModel, bottomPadding: Dp) {
     val shownState = holder.value
 
     val canExpand = shownState?.hasResult() == true
+    val canSave = shownState != null &&
+            !shownState.isLoading && !shownState.isPhrase && !shownState.isError
 
     LaunchedEffect(isOpen, canExpand) {
         if (!isOpen || !canExpand) isFull = false
@@ -104,6 +112,12 @@ fun TranslateFab(viewModel: WordPopupViewModel, bottomPadding: Dp) {
 
     LaunchedEffect(target, dragging) {
         if (!dragging) progress.animateTo(target, tween(300))
+    }
+
+    LaunchedEffect(Unit) {
+        snapshotFlow { progress.value }.collect {
+            if (it == 0f) swipe.offset.snapTo(0f)
+        }
     }
 
     val p = progress.value
@@ -141,6 +155,9 @@ fun TranslateFab(viewModel: WordPopupViewModel, bottomPadding: Dp) {
         val expandThreshold = with(density) { 50.dp.toPx() } / travelPx
         val collapseThreshold = with(density) { 90.dp.toPx() } / travelPx
 
+        val swipeThresholdPx = with(density) { SWIPE_THRESHOLD.toPx() }
+        val swipeFlyPx = with(density) { fullWidth.toPx() }
+
         val onDragStart: () -> Unit = {
             dragging = true
             dragValue = progress.value.coerceIn(1f, 2f)
@@ -177,6 +194,19 @@ fun TranslateFab(viewModel: WordPopupViewModel, bottomPadding: Dp) {
                 .align(Alignment.BottomEnd)
                 .padding(end = endMargin, bottom = bottomMargin)
                 .size(width = shellWidth, height = shellHeight)
+                .swipeToSave(
+                    state = swipe,
+                    enabled = mode == FabMode.CARD && !dragging,
+                    canSave = canSave,
+                    thresholdPx = swipeThresholdPx,
+                    flyPx = swipeFlyPx,
+                    onSave = {
+                        save()
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.dismiss()
+                    },
+                    onDismiss = viewModel::dismiss
+                )
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 if (p > 0f && p < 2f) {
@@ -219,6 +249,7 @@ fun TranslateFab(viewModel: WordPopupViewModel, bottomPadding: Dp) {
                         FabButtonContent(onClick = viewModel::openCard)
                     }
                 }
+                SwipeHint(state = swipe, thresholdPx = swipeThresholdPx, canSave = canSave)
             }
         }
     }

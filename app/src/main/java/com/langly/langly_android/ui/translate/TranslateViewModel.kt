@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.langly.langly_android.data.local.AppDatabase
 import com.langly.langly_android.data.local.VocabWord
 import com.langly.langly_android.dictionary.DictionaryMeaning
+import com.langly.langly_android.dictionary.findBaseWord
 import com.langly.langly_android.dictionary.lookupWithForms
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -21,7 +22,8 @@ data class WordPopupState(
     val isPhrase: Boolean = false,
     val isError: Boolean = false,
     val savedCount: Int = 0,
-    val fromInput: Boolean = false
+    val fromInput: Boolean = false,
+    val baseWord: String? = null
 ) {
     val entryWord: String get() = meanings.firstOrNull()?.headword ?: text
 }
@@ -39,6 +41,12 @@ class WordPopupViewModel(application: Application) : AndroidViewModel(applicatio
     fun onTextSelected(raw: String) = lookup(raw, fromInput = false)
 
     fun onTextTyped(raw: String) = lookup(raw, fromInput = true)
+
+    fun openBaseWord() {
+        val current = _state.value ?: return
+        val base = current.baseWord ?: return
+        lookup(base, current.fromInput)
+    }
 
     private fun lookup(raw: String, fromInput: Boolean) {
         val text = raw.trim { !it.isLetterOrDigit() }
@@ -60,13 +68,20 @@ class WordPopupViewModel(application: Application) : AndroidViewModel(applicatio
                 val meanings: List<DictionaryMeaning> =
                     if (isPhrase) emptyList() else lookupWithForms(getApplication(), text)
                 val entryWord = meanings.firstOrNull()?.headword ?: text
+                val baseWord =
+                    if (meanings.isNotEmpty() && entryWord.equals(text, ignoreCase = true)) {
+                        findBaseWord(getApplication(), text)
+                    } else {
+                        null
+                    }
                 WordPopupState(
                     text = text,
                     meanings = meanings,
                     isLoading = false,
                     isPhrase = isPhrase,
                     savedCount = dao.countByWord(entryWord),
-                    fromInput = fromInput
+                    fromInput = fromInput,
+                    baseWord = baseWord
                 )
             } catch (e: CancellationException) {
                 throw e

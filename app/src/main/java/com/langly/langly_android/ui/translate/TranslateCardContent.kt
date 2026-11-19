@@ -47,6 +47,7 @@ internal fun TranslateCardContent(
     onExpand: () -> Unit,
     onSubmit: (String) -> Unit,
     onSave: () -> Unit,
+    onOpenBase: () -> Unit,
     onClose: () -> Unit
 ) {
     val showInput = state == null || state.fromInput
@@ -83,7 +84,12 @@ internal fun TranslateCardContent(
             }
 
             if (state != null) {
-                ResultSection(state = state, showWord = state.fromInput, onSave = onSave)
+                ResultSection(
+                    state = state,
+                    showWord = state.fromInput,
+                    onSave = onSave,
+                    onOpenBase = onOpenBase
+                )
             }
         }
     }
@@ -120,7 +126,8 @@ private fun LookupField(onSubmit: (String) -> Unit, showHint: Boolean) {
 private fun ColumnScope.ResultSection(
     state: WordPopupState,
     showWord: Boolean,
-    onSave: () -> Unit
+    onSave: () -> Unit,
+    onOpenBase: () -> Unit
 ) {
     val phonetic = state.meanings.firstOrNull()?.phonetic
 
@@ -152,6 +159,12 @@ private fun ColumnScope.ResultSection(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.tertiary
         )
+    }
+
+    state.baseWord?.let { base ->
+        TextButton(onClick = onOpenBase) {
+            Text("Xem từ gốc: $base")
+        }
     }
 
     when {

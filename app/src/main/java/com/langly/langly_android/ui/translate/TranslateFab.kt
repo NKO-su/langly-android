@@ -222,6 +222,7 @@ fun TranslateFab(viewModel: WordPopupViewModel, bottomPadding: Dp) {
                             onExpand = { isFull = true },
                             onSubmit = viewModel::onTextTyped,
                             onSave = save,
+                            onOpenBase = viewModel::openBaseWord,
                             onClose = viewModel::dismiss
                         )
                     }

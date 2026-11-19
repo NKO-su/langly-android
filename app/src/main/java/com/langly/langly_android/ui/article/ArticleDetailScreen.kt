@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.langly.langly_android.ui.translate.WordPopupViewModel
 
 @Composable
 fun ArticleDetailScreen(
@@ -32,6 +33,7 @@ fun ArticleDetailScreen(
     popupViewModel: WordPopupViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val savedWords by popupViewModel.savedWords.collectAsState()
     val uriHandler = LocalUriHandler.current
     val scrollState = rememberScrollState()
 
@@ -50,7 +52,7 @@ fun ArticleDetailScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(scrollState)
-                        .padding(16.dp),
+                        .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 96.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(s.article.title, style = MaterialTheme.typography.headlineSmall)
@@ -66,7 +68,8 @@ fun ArticleDetailScreen(
                     s.article.body?.let {
                         ArticleBody(
                             html = it,
-                            onTextSelected = popupViewModel::onTextSelected
+                            onTextSelected = popupViewModel::onTextSelected,
+                            savedWords = savedWords
                         )
                     }
                     s.article.webUrl?.let { url ->
@@ -102,8 +105,6 @@ fun ArticleDetailScreen(
                 )
             }
         }
-
-        WordPopupSheet(viewModel = popupViewModel)
     }
 }
 

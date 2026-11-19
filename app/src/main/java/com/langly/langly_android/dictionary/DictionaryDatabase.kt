@@ -6,13 +6,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 object DictionaryDatabase {
-
     private const val QUERY = """
-        SELECT w.word, d.definition, d.pos, wd.example
+        SELECT w.word, d.definition, d.pos, wd.example,
+               (SELECT p.ipa FROM pronunciations p
+                WHERE p.word_id = w.id
+                ORDER BY p.id
+                LIMIT 1) AS ipa
         FROM words w
         JOIN word_definitions wd ON wd.word_id = w.id
         JOIN definitions d       ON d.id = wd.definition_id
         WHERE w.word = ? AND w.lang_code = 'en'
+        ORDER BY wd.id
     """
 
     suspend fun lookup(context: Context, word: String): List<DictionaryMeaning> {
@@ -34,7 +38,8 @@ object DictionaryDatabase {
                                     headword = cursor.getString(0),
                                     definition = cursor.getString(1),
                                     partOfSpeech = partOfSpeechFromRaw(cursor.getString(2)),
-                                    example = cursor.getString(3)
+                                    example = cursor.getString(3),
+                                    phonetic = cursor.getString(4)
                                 )
                             )
                         }

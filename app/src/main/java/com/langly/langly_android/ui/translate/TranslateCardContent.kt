@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -173,10 +174,7 @@ private fun ColumnScope.ResultSection(
             "Không tra được từ điển. Thử lại sau.",
             style = MaterialTheme.typography.bodySmall
         )
-        state.isPhrase -> Text(
-            "Cụm từ: bản dịch sẽ có ở bước sau.",
-            style = MaterialTheme.typography.bodySmall
-        )
+        state.isPhrase -> PhraseSection(state.phraseState)
         state.meanings.isEmpty() -> Text(
             "Không tìm thấy trong từ điển.",
             style = MaterialTheme.typography.bodySmall
@@ -210,6 +208,40 @@ private fun ColumnScope.ResultSection(
         modifier = Modifier.fillMaxWidth()
     ) {
         Text("Lưu")
+    }
+}
+
+@Composable
+private fun PhraseSection(phrase: PhraseState) {
+    when (phrase) {
+        PhraseState.Idle, PhraseState.Translating -> PhraseProgress("Đang dịch...")
+        PhraseState.Downloading -> PhraseProgress("Đang tải gói tiếng Việt (một lần, khoảng 30 MB)...")
+        is PhraseState.Done -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                text = phrase.text,
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Text(
+                text = "Bản dịch máy, có thể chưa chính xác với thành ngữ. Dịch bởi Google ML Kit.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        PhraseState.Error -> Text(
+            text = "Không dịch được. Lần đầu cần có mạng để tải gói ngôn ngữ.",
+            style = MaterialTheme.typography.bodySmall
+        )
+    }
+}
+
+@Composable
+private fun PhraseProgress(message: String) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+        Text(text = message, style = MaterialTheme.typography.bodySmall)
     }
 }
 

@@ -13,6 +13,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -23,15 +25,20 @@ import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.dp
+
+private val WORD_REGEX = Regex("[\\p{L}\\p{N}]+(?:['’][\\p{L}]+)?")
 
 @Composable
 fun ArticleBody(
     html: String,
     onTextSelected: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    savedWords: Set<String> = emptySet()
 ) {
     val linkColor = MaterialTheme.colorScheme.primary
     val highlightColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+    val savedColor = MaterialTheme.colorScheme.tertiary
     val haptic = LocalHapticFeedback.current
 
     val styled = remember(html, linkColor) {
@@ -44,6 +51,17 @@ fun ArticleBody(
                 )
             )
         )
+    }
+
+    val savedRanges = remember(styled, savedWords) {
+        if (savedWords.isEmpty()) {
+            emptyList()
+        } else {
+            WORD_REGEX.findAll(styled.text)
+                .filter { it.value.lowercase() in savedWords }
+                .map { TextRange(it.range.first, it.range.last + 1) }
+                .toList()
+        }
     }
 
     val currentOnTextSelected by rememberUpdatedState(onTextSelected)
@@ -60,6 +78,27 @@ fun ArticleBody(
                 val s = selection
                 if (l != null && s != null) {
                     drawPath(l.getPathForRange(s.start, s.end), highlightColor)
+                }
+                if (l != null && savedRanges.isNotEmpty()) {
+                    val stroke = 1.5.dp.toPx()
+                    val gap = 3.dp.toPx()
+                    val effect = PathEffect.dashPathEffect(floatArrayOf(0.1f, 4.dp.toPx()))
+                    val textLength = l.layoutInput.text.length
+                    savedRanges.forEach { r ->
+                        if (r.end > textLength) return@forEach
+                        val line = l.getLineForOffset(r.start)
+                        if (l.getLineForOffset(r.end - 1) != line) return@forEach
+                        val bounds = l.getPathForRange(r.start, r.end).getBounds()
+                        val y = l.getLineBaseline(line) + gap
+                        drawLine(
+                            color = savedColor,
+                            start = Offset(bounds.left, y),
+                            end = Offset(bounds.right, y),
+                            strokeWidth = stroke,
+                            cap = StrokeCap.Round,
+                            pathEffect = effect
+                        )
+                    }
                 }
             }
             .pointerInput(styled) {
@@ -123,5 +162,6 @@ private fun wordRangeAt(layout: TextLayoutResult, position: Offset): TextRange {
     val offset = layout.getOffsetForPosition(Offset(x, y))
     return layout.getWordBoundary(offset)
 }
+
 private fun unionOf(a: TextRange, b: TextRange): TextRange =
     TextRange(minOf(a.start, b.start), maxOf(a.end, b.end))

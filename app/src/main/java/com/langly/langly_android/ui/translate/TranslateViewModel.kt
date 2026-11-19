@@ -1,6 +1,7 @@
 package com.langly.langly_android.ui.translate
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.langly.langly_android.data.local.AppDatabase
@@ -11,9 +12,20 @@ import com.langly.langly_android.dictionary.lookupWithForms
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+sealed interface PhraseState {
+    data object Idle : PhraseState
+    data object Downloading : PhraseState
+    data object Translating : PhraseState
+    data class Done(val text: String) : PhraseState
+    data object Error : PhraseState
+}
 
 data class WordPopupState(
     val text: String,
@@ -23,7 +35,8 @@ data class WordPopupState(
     val isError: Boolean = false,
     val savedCount: Int = 0,
     val fromInput: Boolean = false,
-    val baseWord: String? = null
+    val baseWord: String? = null,
+    val phraseState: PhraseState = PhraseState.Idle
 ) {
     val entryWord: String get() = meanings.firstOrNull()?.headword ?: text
 }
@@ -31,6 +44,11 @@ data class WordPopupState(
 class WordPopupViewModel(application: Application) : AndroidViewModel(application) {
 
     private val dao = AppDatabase.getInstance(application).vocabWordDao()
+
+    val savedWords: StateFlow<Set<String>> = dao.getAll()
+        .map { list -> list.map { it.word.lowercase() }.toSet() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
     private val _state = MutableStateFlow<WordPopupState?>(null)
     val state: StateFlow<WordPopupState?> = _state
     private val _isCardOpen = MutableStateFlow(false)
@@ -60,10 +78,15 @@ class WordPopupViewModel(application: Application) : AndroidViewModel(applicatio
             text = text,
             isLoading = !isPhrase,
             isPhrase = isPhrase,
-            fromInput = fromInput
+            fromInput = fromInput,
+            phraseState = if (isPhrase) PhraseState.Translating else PhraseState.Idle
         )
 
         lookupJob = viewModelScope.launch {
+            if (isPhrase) {
+                translatePhrase(text)
+                return@launch
+            }
             val result = try {
                 val meanings: List<DictionaryMeaning> =
                     if (isPhrase) emptyList() else lookupWithForms(getApplication(), text)
@@ -96,6 +119,28 @@ class WordPopupViewModel(application: Application) : AndroidViewModel(applicatio
             }
 
             _state.update { current -> if (current?.text == text) result else current }
+        }
+    }
+
+    private suspend fun translatePhrase(text: String) {
+        fun push(phrase: PhraseState) {
+            _state.update { current ->
+                if (current?.text == text) current.copy(phraseState = phrase) else current
+            }
+        }
+
+        try {
+            if (!PhraseTranslator.isReady()) {
+                push(PhraseState.Downloading)
+                PhraseTranslator.download()
+            }
+            push(PhraseState.Translating)
+            push(PhraseState.Done(PhraseTranslator.translate(text)))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e("PhraseTranslator", "translatePhrase failed", e)
+            push(PhraseState.Error)
         }
     }
 

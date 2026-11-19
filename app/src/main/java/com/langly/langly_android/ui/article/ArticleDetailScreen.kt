@@ -33,6 +33,7 @@ fun ArticleDetailScreen(
     popupViewModel: WordPopupViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val savedWords by popupViewModel.savedWords.collectAsState()
     val uriHandler = LocalUriHandler.current
     val scrollState = rememberScrollState()
 
@@ -67,7 +68,8 @@ fun ArticleDetailScreen(
                     s.article.body?.let {
                         ArticleBody(
                             html = it,
-                            onTextSelected = popupViewModel::onTextSelected
+                            onTextSelected = popupViewModel::onTextSelected,
+                            savedWords = savedWords
                         )
                     }
                     s.article.webUrl?.let { url ->
